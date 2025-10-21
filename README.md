@@ -9,6 +9,24 @@ An AI-powered home loan underwriting system using Pydantic AI, Temporal workflow
 - **MCP Server**: Tools for loan application management
 - **FakeBank**: Mock banking service for testing
 
+## Architecture
+
+```mermaid
+flowchart TD
+    Client["MCP Client"] --> MCP["MCP Server"]
+    MCP --> Temporal["Temporal Workflow"]
+    Temporal --> Agent["AI Agent"]
+    Temporal --> Bank["FakeBank Service"]
+    Agent --> Teams["MS Teams"]
+    
+    subgraph "Loan Processing Flow"
+        MCP -.-> |"start_loan_application"| Temporal
+        MCP -.-> |"supply_bank_account"| Temporal
+        MCP -.-> |"get_application_status"| Temporal
+        Agent -.-> |"post_to_teams"| Teams
+    end
+```
+
 ## Setup
 
 Install dependencies:
