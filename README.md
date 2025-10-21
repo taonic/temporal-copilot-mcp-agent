@@ -42,5 +42,13 @@ The MCP server provides tools for:
 - `start_loan_application`: Begin loan processing
 - `supply_bank_account`: Provide bank account verification
 - `get_application_status`: Check application status
+- `post_to_teams`: Post application details to MS Teams for approval
 
 Test accounts: `123-456`, `654-321`
+
+## Configuration
+
+Set the Teams webhook URL:
+```bash
+export TEAMS_WEBHOOK_URL="https://your-org.webhook.office.com/webhookb2/..."
+```

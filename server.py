@@ -6,6 +6,8 @@ from typing import AsyncIterator, Optional
 
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
+from starlette.responses import PlainTextResponse
+from starlette.requests import Request
 
 from temporalio import common
 from temporalio.client import (
@@ -14,7 +16,8 @@ from temporalio.client import (
 )
 
 from workflow import LoanProcessingWorkflow
-from agent import LoanApplication, LoanDecision
+from agent import LoanApplication, UnderwritingRecommendation, FinalResult
+from config import settings
 
 @dataclass(slots=True)
 class AppContext:
@@ -73,12 +76,12 @@ async def start_loan_application(
 
     try:
         client = context.request_context.lifespan_context.temporal_client
-        decision_payload = await client.execute_update_with_start_workflow(
+        recommendation_payload = await client.execute_update_with_start_workflow(
             LoanProcessingWorkflow.start_processing,
             application.model_dump(),
             start_workflow_operation=start_operation,
         )
-        decision = LoanDecision.model_validate(decision_payload)
+        recommendation = UnderwritingRecommendation.model_validate(recommendation_payload)
     except Exception as exc:
         return {
             "application_id": application_id,
@@ -86,11 +89,7 @@ async def start_loan_application(
             "error": str(exc),
         }
 
-    return {
-        "application_id": application_id,
-        "status": f"decision_{decision.recommendation}",
-        "decision": decision.model_dump(),
-    }
+    return recommendation.model_dump()
 
 
 @server.tool()
@@ -136,9 +135,22 @@ async def get_application_status(
 
     return status_info
 
+@server.custom_route("/applications/{application_id}", methods=["GET"])
+async def approve_application(request: Request):
+    application_id = request.path_params['application_id']
+    action = request.query_params['action']
+    
+    try:
+        client = await Client.connect("localhost:7233")
+        handle = client.get_workflow_handle(application_id)
+        await handle.signal(LoanProcessingWorkflow.receive_human_decision, action)
+    except Exception as exc:
+        return PlainTextResponse(f"Error: {exc}", status_code=500)
+
+    return PlainTextResponse("OK")
+
 
 def run_server(transport: str = "streamable-http") -> None:
-    """Run the FastMCP server with the provided transport."""
     server.run(transport=transport)
 
 
